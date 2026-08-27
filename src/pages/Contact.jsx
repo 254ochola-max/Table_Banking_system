@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Mail, Send, Loader2, CheckCircle2, MessageSquare } from "lucide-react";
+import { ArrowRight, Send, Loader2, CheckCircle2, MessageSquare } from "lucide-react";
 import { api, supabase } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ function makeId() {
 }
 
 export default function Contact() {
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -18,6 +20,15 @@ export default function Contact() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      const detectedName = user.memberName || user.full_name || user.name || "";
+      const detectedEmail = user.email || "";
+      if (detectedName) setName(detectedName);
+      if (detectedEmail) setEmail(detectedEmail);
+    }
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,7 +63,12 @@ export default function Contact() {
       }
 
       setSent(true);
-      setName(""); setEmail(""); setSubject(""); setMessage("");
+      setSubject("");
+      setMessage("");
+      if (!user) {
+        setName("");
+        setEmail("");
+      }
     } catch (err) {
       console.error("Contact form error:", err);
       setError("Something went wrong. Please try again or email us directly.");
@@ -89,17 +105,6 @@ export default function Contact() {
             </p>
           </div>
         </div>
-
-        {/* Direct email link */}
-        <a
-          href="mailto:deborahs.support@chama.org"
-          className="flex items-center gap-3 text-gray-600 hover:text-fuchsia-700 transition-colors mb-6 group"
-        >
-          <div className="p-2 rounded-lg bg-amber-50 border border-amber-100 group-hover:bg-fuchsia-50 transition-colors">
-            <Mail size={16} className="text-amber-600 group-hover:text-fuchsia-600 transition-colors" />
-          </div>
-          <span className="text-sm font-medium">deborahs.support@chama.org</span>
-        </a>
 
         {/* Card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 sm:p-8">
