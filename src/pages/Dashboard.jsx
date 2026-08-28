@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Users, Wallet, HandCoins, AlertTriangle, Trash2, Loader2, UserCircle } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import BrandLogo from "@/components/shared/BrandLogo";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import SavingsTargetChart from "@/components/dashboard/SavingsTargetChart";
 import GroupSummaryTableWidget from "@/components/dashboard/GroupSummaryTableWidget";
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -322,13 +323,12 @@ export default function Dashboard() {
           {(currentMember || !isAdmin) && (
             <Link to="/portal">
               <button className="flex items-center gap-3 p-2 pl-2.5 pr-5 rounded-2xl bg-white border-2 border-fuchsia-200 hover:border-fuchsia-500 hover:bg-fuchsia-50/50 text-fuchsia-900 shadow-md hover:shadow-lg transition-all group cursor-pointer">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-600 to-pink-600 text-white flex items-center justify-center font-bold text-base overflow-hidden shadow border-2 border-white flex-shrink-0">
-                  {currentMember?.photo_url ? (
-                    <img src={currentMember.photo_url} alt={currentMember?.full_name} className="w-full h-full object-cover" />
-                  ) : (
-                    currentMember?.full_name?.charAt(0) || <UserCircle size={22} />
-                  )}
-                </div>
+                <MemberAvatar
+                  photoUrl={currentMember?.photo_url}
+                  name={currentMember?.full_name}
+                  size="md"
+                  ring
+                />
                 <div className="flex flex-col text-left">
                   <span className="text-[10px] font-black tracking-widest text-fuchsia-600 uppercase">
                     My Account
@@ -465,23 +465,31 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map(t => (
-                  <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-2.5 px-3 text-gray-600">{moment(t.date).format("MMM D, YYYY")}</td>
-                    <td className="py-2.5 px-3 font-medium text-gray-800">{t.member_name}</td>
-                    <td className="py-2.5 px-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        t.type === "Contribution" ? "bg-emerald-50 text-emerald-700" :
-                        t.type === "Loan Repayment" ? "bg-blue-50 text-blue-700" :
-                        t.type === "Fine" ? "bg-red-50 text-red-700" :
-                        "bg-gray-100 text-gray-700"
-                      }`}>
-                        {t.type}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-medium">KES {(t.amount || 0).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {transactions.map(t => {
+                  const m = members.find(x => x.id === t.member_id || x.full_name === t.member_name);
+                  return (
+                    <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="py-2.5 px-3 text-gray-600">{moment(t.date).format("MMM D, YYYY")}</td>
+                      <td className="py-2.5 px-3 font-medium text-gray-800">
+                        <div className="flex items-center gap-2">
+                          <MemberAvatar photoUrl={m?.photo_url} name={t.member_name} size="xs" />
+                          <span>{t.member_name}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          t.type === "Contribution" ? "bg-emerald-50 text-emerald-700" :
+                          t.type === "Loan Repayment" ? "bg-blue-50 text-blue-700" :
+                          t.type === "Fine" ? "bg-red-50 text-red-700" :
+                          "bg-gray-100 text-gray-700"
+                        }`}>
+                          {t.type}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-medium">KES {(t.amount || 0).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import GroupSummaryTableWidget from "@/components/dashboard/GroupSummaryTableWidget";
 import MemberDetailDialog from "@/components/portal/Member";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import BrandLogo from "@/components/shared/BrandLogo";
+import { compressImage } from "@/lib/imageUtils";
 import moment from "moment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,6 +171,40 @@ export default function MemberPortal() {
     load();
   }, []);
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !member?.id) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please select an image smaller than 10MB.", variant: "destructive" });
+      return;
+    }
+    try {
+      toast({ title: "Compressing image...", description: "Optimizing your photo for fast sync." });
+      const compressed = await compressImage(file, 400, 400, 0.85);
+      if (compressed) {
+        await api.entities.Member.update(member.id, { photo_url: compressed });
+        if (supabase) {
+          await supabase.from("members").update({ photo_url: compressed }).eq("id", member.id);
+          if (user?.id) {
+            await supabase.from("profiles").update({ photo_url: compressed }).eq("id", user.id);
+            await supabase.auth.updateUser({ data: { photo_url: compressed, avatar_url: compressed } });
+          }
+        }
+        setMember(prev => ({ ...prev, photo_url: compressed }));
+        try {
+          localStorage.setItem(`deborahs_photo_${member.id}`, compressed);
+          if (member.user_email) localStorage.setItem(`deborahs_photo_${member.user_email.toLowerCase()}`, compressed);
+          if (member.email) localStorage.setItem(`deborahs_photo_${member.email.toLowerCase()}`, compressed);
+        } catch {}
+        window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: { id: member.id, photo_url: compressed } }));
+        toast({ title: "Profile Photo Updated!", description: "Your photo has been saved and will reflect everywhere." });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleSelfRegister = async (e) => {
     e.preventDefault();
     if (!regForm.full_name || !regForm.phone || !regForm.id_number) {
@@ -178,6 +214,7 @@ export default function MemberPortal() {
     setSubmittingReg(true);
     try {
       let savedMember;
+      const photo = regForm.photo_url || member?.photo_url || null;
       if (member?.id) {
         savedMember = await api.entities.Member.update(member.id, {
           full_name: regForm.full_name,
@@ -188,6 +225,7 @@ export default function MemberPortal() {
           id_number: regForm.id_number,
           gender: regForm.gender,
           address: regForm.address,
+          photo_url: photo,
           status: "Pending",
         });
       } else {
@@ -200,6 +238,7 @@ export default function MemberPortal() {
           id_number: regForm.id_number,
           gender: regForm.gender,
           address: regForm.address,
+          photo_url: photo,
           role: "Member",
           status: "Pending",
           date_joined: new Date().toISOString().split("T")[0],
@@ -574,6 +613,13 @@ export default function MemberPortal() {
       try {
         await api.entities.Member.update(member.id, { photo_url: editValue.trim() });
         setMember(prev => ({ ...prev, photo_url: editValue.trim() }));
+        if (supabase) {
+          try {
+            await supabase.auth.updateUser({
+              data: { avatar_url: editValue.trim(), photo_url: editValue.trim() },
+            });
+          } catch {}
+        }
         toast({ title: "Profile picture updated!", description: "Your profile photo has been saved." });
       } catch (err) {
         console.error(err);
@@ -614,27 +660,37 @@ export default function MemberPortal() {
     setProfileRequests(pr);
   };
 
-  const handlePhotoFileUpload = (e) => {
+  const handlePhotoFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Please select an image smaller than 5MB.", variant: "destructive" });
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please select an image smaller than 10MB.", variant: "destructive" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result;
-      if (!dataUrl || !member?.id) return;
-      try {
-        await api.entities.Member.update(member.id, { photo_url: dataUrl });
-        setMember(prev => ({ ...prev, photo_url: dataUrl }));
-        toast({ title: "Profile picture updated!", description: "Your new profile photo has been saved." });
-      } catch (err) {
-        console.error(err);
-        toast({ title: "Failed to update profile picture", variant: "destructive" });
+    try {
+      toast({ title: "Optimizing & saving photo...", description: "Please wait a moment." });
+      const compressedDataUrl = await compressImage(file, 400, 400, 0.85);
+      if (!compressedDataUrl || !member?.id) return;
+
+      await api.entities.Member.update(member.id, { photo_url: compressedDataUrl });
+      setMember(prev => ({ ...prev, photo_url: compressedDataUrl }));
+
+      if (supabase) {
+        try {
+          await supabase.auth.updateUser({
+            data: { avatar_url: compressedDataUrl, photo_url: compressedDataUrl },
+          });
+        } catch {}
       }
-    };
-    reader.readAsDataURL(file);
+
+      toast({
+        title: "Profile picture updated!",
+        description: "Your new profile photo is saved and visible everywhere across the group.",
+      });
+    } catch (err) {
+      console.error("Failed to upload photo:", err);
+      toast({ title: "Failed to update profile picture", description: err.message, variant: "destructive" });
+    }
   };
 
   const pendingForField = (fieldKey) => {
@@ -682,15 +738,7 @@ export default function MemberPortal() {
               <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left z-10">
                 {/* Safaricom Style Profile Picture Circle with Ring */}
                 <div className="relative group flex-shrink-0">
-                  <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full p-1 bg-gradient-to-tr from-amber-300 via-white to-pink-300 shadow-lg">
-                    <div className="w-full h-full rounded-full bg-fuchsia-900 border-2 border-white/90 flex items-center justify-center overflow-hidden">
-                      {member?.photo_url ? (
-                        <img src={member.photo_url} alt={member.full_name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-3xl font-black text-white">{member?.full_name?.charAt(0)}</span>
-                      )}
-                    </div>
-                  </div>
+                  <MemberAvatar photoUrl={member?.photo_url} name={member?.full_name} size="2xl" ring />
                   {/* Camera upload badge */}
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -699,6 +747,13 @@ export default function MemberPortal() {
                   >
                     <Camera size={13} />
                   </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
                 </div>
 
                 <div className="space-y-1">

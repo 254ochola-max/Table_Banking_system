@@ -15,12 +15,12 @@ import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import AppLayout from '@/components/layout/AppLayout';
+import Members from '@/pages/Members';
+import MemberDetail from '@/pages/MemberDetail';
 
 // ── Lazy imports (loaded only when the user first navigates to the page) ──────
 // This means the initial JS bundle is much smaller and the app starts faster.
 const Dashboard      = lazy(() => import('@/pages/Dashboard'));
-const Members        = lazy(() => import('@/pages/Members'));
-const MemberDetail   = lazy(() => import('@/pages/MemberDetail'));
 const Contributions  = lazy(() => import('@/pages/Contributions'));
 const Loans          = lazy(() => import('@/pages/Loans'));
 const Repayments     = lazy(() => import('@/pages/Repayments'));

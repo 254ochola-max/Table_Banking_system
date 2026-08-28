@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "@/api/supabaseClient";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Pencil, Check, X, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -226,13 +227,7 @@ export default function GroupSummaryTableWidget({ isAdmin, onDataChange }) {
                 {members.map(m => (
                   <th key={m.id} className="text-right py-2.5 px-2 font-medium text-gray-500 min-w-[85px] whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1.5">
-                      <div className="w-5 h-5 rounded-full bg-fuchsia-100 border border-fuchsia-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {m.photo_url ? (
-                          <img src={m.photo_url} alt={m.full_name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-[10px] font-bold text-fuchsia-700">{m.full_name?.charAt(0)}</span>
-                        )}
-                      </div>
+                      <MemberAvatar photoUrl={m.photo_url} name={m.full_name} size="xs" />
                       <span>{m.full_name.split(" ")[0]}</span>
                     </div>
                   </th>

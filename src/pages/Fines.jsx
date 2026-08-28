@@ -3,6 +3,7 @@ import { api, supabase } from "@/api/supabaseClient";
 import { AlertTriangle, Plus, Check, Trash2, CheckCircle2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -188,7 +189,12 @@ export default function Fines() {
                 {fines.map(f => (
                   <tr key={f.id} className="border-b border-gray-50 hover:bg-fuchsia-50/20 transition-colors">
                     <td className="py-3.5 px-4 text-gray-600 text-xs">{moment(f.date_issued).format("MMM D, YYYY")}</td>
-                    <td className="py-3.5 px-4 font-bold text-gray-900">{f.member_name}</td>
+                    <td className="py-3.5 px-4 font-bold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <MemberAvatar photoUrl={members.find(m => m.id === f.member_id)?.photo_url} name={f.member_name} size="xs" />
+                        <span>{f.member_name}</span>
+                      </div>
+                    </td>
                     <td className="py-3.5 px-4 text-gray-600 hidden sm:table-cell text-xs">{f.reason}</td>
                     <td className="py-3.5 px-4 text-right font-bold text-fuchsia-800">KES {(f.amount || 0).toLocaleString()}</td>
                     <td className="py-3.5 px-4">

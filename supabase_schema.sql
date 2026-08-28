@@ -9,11 +9,14 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   full_name text,
+  photo_url text,
   role text not null default 'user' check (role in ('admin','user')),
   status text not null default 'Active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists photo_url text;
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -24,7 +27,10 @@ as $$
 declare
   assigned_role text;
   mem_id text;
+  user_photo text;
 begin
+  user_photo := coalesce(new.raw_user_meta_data->>'photo_url', new.raw_user_meta_data->>'avatar_url');
+
   -- The first registered account becomes the bootstrap administrator.
   -- All later accounts are regular users.
   if not exists (select 1 from public.profiles) then
@@ -33,21 +39,23 @@ begin
     assigned_role := 'user';
   end if;
 
-  insert into public.profiles (id, email, full_name, role)
+  insert into public.profiles (id, email, full_name, role, photo_url)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(coalesce(new.email,''), '@', 1)),
-    assigned_role
+    assigned_role,
+    user_photo
   )
   on conflict (id) do update set
     email = excluded.email,
-    full_name = excluded.full_name;
+    full_name = excluded.full_name,
+    photo_url = coalesce(excluded.photo_url, public.profiles.photo_url);
 
   mem_id := 'mem-' || replace(new.id::text, '-', '');
 
   if assigned_role = 'admin' then
-    insert into public.members (id, full_name, phone, email, user_email, id_number, status, role, date_joined, auth_user_id)
+    insert into public.members (id, full_name, phone, email, user_email, id_number, status, role, date_joined, auth_user_id, photo_url)
     values (
       mem_id,
       coalesce(new.raw_user_meta_data->>'full_name', split_part(coalesce(new.email,''), '@', 1)),
@@ -58,11 +66,12 @@ begin
       'Active',
       'Chairperson',
       current_date,
-      new.id::text
+      new.id::text,
+      user_photo
     )
-    on conflict (id) do update set user_email = excluded.user_email, email = excluded.email, auth_user_id = excluded.auth_user_id;
+    on conflict (id) do update set user_email = excluded.user_email, email = excluded.email, auth_user_id = excluded.auth_user_id, photo_url = coalesce(excluded.photo_url, public.members.photo_url);
   else
-    insert into public.members (id, full_name, phone, email, user_email, id_number, status, role, date_joined, auth_user_id)
+    insert into public.members (id, full_name, phone, email, user_email, id_number, status, role, date_joined, auth_user_id, photo_url)
     values (
       mem_id,
       coalesce(new.raw_user_meta_data->>'full_name', split_part(coalesce(new.email,''), '@', 1)),
@@ -73,9 +82,10 @@ begin
       'Pending',
       'Member',
       current_date,
-      new.id::text
+      new.id::text,
+      user_photo
     )
-    on conflict (id) do update set user_email = excluded.user_email, email = excluded.email, auth_user_id = excluded.auth_user_id;
+    on conflict (id) do update set user_email = excluded.user_email, email = excluded.email, auth_user_id = excluded.auth_user_id, photo_url = coalesce(excluded.photo_url, public.members.photo_url);
   end if;
 
   return new;

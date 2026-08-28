@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api, supabase } from "@/api/supabaseClient";
 import { useOutletContext } from "react-router-dom";
-import { Users, Plus, Search, Edit2, Trash2, Eye, ShieldOff, AlertTriangle, Clock, CheckCircle2, XCircle, Shield, UserCircle, RefreshCw, Database } from "lucide-react";
+import { Users, Plus, Search, Edit2, Trash2, Eye, ShieldOff, AlertTriangle, Clock, CheckCircle2, XCircle, Shield, UserCircle, RefreshCw, Database, Upload, Camera } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import MemberAvatar from "@/components/shared/MemberAvatar";
+import { compressImage } from "@/lib/imageUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -19,7 +21,7 @@ const ROLE_ORDER = [
 
 const emptyMember = {
   full_name: "", phone: "", email: "", user_email: "", id_number: "",
-  gender: "Female", address: "", role: "Member",
+  gender: "Female", address: "", role: "Member", photo_url: "",
   status: "Active", date_joined: new Date().toISOString().split("T")[0],
 };
 
@@ -43,6 +45,7 @@ export default function Members() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef(null);
 
   // Initial load — only runs once on mount. Subsequent mutations use
   // optimistic local state updates so the page never re-fetches from Supabase
@@ -61,7 +64,26 @@ export default function Members() {
   useEffect(() => { load(true); }, [load]);
 
   const openNew = () => { setEditing(null); setForm(emptyMember); setShowForm(true); };
-  const openEdit = (m) => { setEditing(m); setForm({ ...m }); setShowForm(true); };
+  const openEdit = (m) => { setEditing(m); setForm({ ...emptyMember, ...m, photo_url: m.photo_url || "" }); setShowForm(true); };
+
+  const handleModalPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please select an image smaller than 10MB.", variant: "destructive" });
+      return;
+    }
+    try {
+      toast({ title: "Optimizing photo...", description: "Processing selected image." });
+      const compressed = await compressImage(file, 400, 400, 0.85);
+      if (compressed) {
+        setForm(prev => ({ ...prev, photo_url: compressed }));
+        toast({ title: "Photo selected", description: "Click Save/Update to apply changes." });
+      }
+    } catch (err) {
+      toast({ title: "Failed to process photo", description: err.message, variant: "destructive" });
+    }
+  };
 
   const handleSave = async () => {
     if (!form.full_name || !form.phone || !form.id_number) {
@@ -75,6 +97,7 @@ export default function Members() {
         ...form,
         email: email || null,
         user_email: email || null,
+        photo_url: form.photo_url || null,
       };
 
       if (editing) {
@@ -89,6 +112,7 @@ export default function Members() {
             id_number: payload.id_number,
             gender: payload.gender || "Female",
             address: payload.address || null,
+            photo_url: payload.photo_url || null,
             status: payload.status || "Active",
             role: payload.role || "Member",
             date_joined: payload.date_joined || new Date().toISOString().split("T")[0],
@@ -110,6 +134,7 @@ export default function Members() {
             id_number: payload.id_number,
             gender: payload.gender || "Female",
             address: payload.address || null,
+            photo_url: payload.photo_url || null,
             status: payload.status || "Active",
             role: payload.role || "Member",
             date_joined: payload.date_joined || new Date().toISOString().split("T")[0],
@@ -152,6 +177,7 @@ export default function Members() {
           id_number: m.id_number || "N/A",
           gender: m.gender || "Female",
           address: m.address || null,
+          photo_url: m.photo_url || null,
           status: m.status || "Active",
           role: m.role || "Member",
           date_joined: m.date_joined || new Date().toISOString().split("T")[0],
@@ -435,22 +461,25 @@ export default function Members() {
               <div className="divide-y divide-fuchsia-100 bg-white rounded-xl border border-fuchsia-100 overflow-hidden text-sm shadow-xs">
                 {pendingMembers.map(m => (
                   <div key={m.id} className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-fuchsia-50/40 transition-colors">
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-gray-900 text-base">{m.full_name}</span>
-                        <span className="text-xs bg-fuchsia-100 text-fuchsia-900 px-2.5 py-0.5 rounded-full font-bold border border-fuchsia-300 flex items-center gap-1">
-                          <Clock size={12} className="text-fuchsia-600" /> Pending Verification
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-600 flex flex-wrap items-center gap-3">
-                        <span>Login Email: <strong className="text-gray-900 font-semibold">{m.email || m.user_email}</strong></span>
-                        <span>·</span>
-                        <span>Phone: <strong className="text-gray-900 font-semibold">{m.phone}</strong></span>
-                        <span>·</span>
-                        <span>National ID: <strong className="text-gray-900 font-semibold">{m.id_number}</strong></span>
-                        {m.address && <><span>·</span><span>Location: <strong className="text-gray-900 font-semibold">{m.address}</strong></span></>}
-                        <span>·</span>
-                        <span>Submitted: <strong className="text-gray-700">{moment(m.date_joined || m.created_at).format("D MMM YYYY")}</strong></span>
+                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                      <MemberAvatar photoUrl={m.photo_url} name={m.full_name} size="lg" ring />
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-gray-900 text-base">{m.full_name}</span>
+                          <span className="text-xs bg-fuchsia-100 text-fuchsia-900 px-2.5 py-0.5 rounded-full font-bold border border-fuchsia-300 flex items-center gap-1">
+                            <Clock size={12} className="text-fuchsia-600" /> Pending Verification
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-600 flex flex-wrap items-center gap-3">
+                          <span>Login Email: <strong className="text-gray-900 font-semibold">{m.email || m.user_email}</strong></span>
+                          <span>·</span>
+                          <span>Phone: <strong className="text-gray-900 font-semibold">{m.phone}</strong></span>
+                          <span>·</span>
+                          <span>National ID: <strong className="text-gray-900 font-semibold">{m.id_number}</strong></span>
+                          {m.address && <><span>·</span><span>Location: <strong className="text-gray-900 font-semibold">{m.address}</strong></span></>}
+                          <span>·</span>
+                          <span>Submitted: <strong className="text-gray-700">{moment(m.date_joined || m.created_at).format("D MMM YYYY")}</strong></span>
+                        </div>
                       </div>
                     </div>
 
@@ -524,31 +553,37 @@ export default function Members() {
               </div>
             ) : (
               <div className="divide-y divide-gray-100 bg-white rounded-xl border border-gray-100 overflow-hidden text-sm">
-                {pendingRequests.map(req => (
-                  <div key={req.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-fuchsia-50/30 transition-colors">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-base">{req.member_name}</span>
-                        <span className="text-xs bg-fuchsia-100 text-fuchsia-800 px-2.5 py-0.5 rounded-md font-bold">{req.field_label || req.field_key}</span>
+                {pendingRequests.map(req => {
+                  const reqMember = members.find(x => x.id === req.member_id);
+                  return (
+                    <div key={req.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-fuchsia-50/30 transition-colors">
+                      <div className="flex items-center gap-3 space-y-1">
+                        <MemberAvatar photoUrl={reqMember?.photo_url} name={req.member_name} size="md" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900 text-base">{req.member_name}</span>
+                            <span className="text-xs bg-fuchsia-100 text-fuchsia-800 px-2.5 py-0.5 rounded-md font-bold">{req.field_label || req.field_key}</span>
+                          </div>
+                          <div className="text-xs text-gray-600 flex flex-wrap items-center gap-2 mt-0.5">
+                            <span>Old Value: <span className="font-mono text-gray-500 line-through">{req.old_value || "(empty)"}</span></span>
+                            <span>➔</span>
+                            <span>New Value: <span className="font-mono font-bold text-emerald-700">{req.new_value}</span></span>
+                            <span className="text-gray-400">· Requested {moment(req.request_date).format("D MMM YYYY, h:mm A")}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-600 flex flex-wrap items-center gap-2">
-                        <span>Old Value: <span className="font-mono text-gray-500 line-through">{req.old_value || "(empty)"}</span></span>
-                        <span>➔</span>
-                        <span>New Value: <span className="font-mono font-bold text-emerald-700">{req.new_value}</span></span>
-                        <span className="text-gray-400">· Requested {moment(req.request_date).format("D MMM YYYY, h:mm A")}</span>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 self-end md:self-auto">
-                      <Button size="sm" onClick={() => handleApproveProfileChange(req)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-9 px-3.5 shadow-xs">
-                        <CheckCircle2 size={14} className="mr-1.5" /> Approve
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleRejectProfileChange(req)} className="text-red-600 border-red-200 hover:bg-red-50 text-xs font-semibold h-9 px-3">
-                        <XCircle size={14} className="mr-1" /> Reject
-                      </Button>
+                      <div className="flex items-center gap-2 self-end md:self-auto">
+                        <Button size="sm" onClick={() => handleApproveProfileChange(req)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-9 px-3.5 shadow-xs">
+                          <CheckCircle2 size={14} className="mr-1.5" /> Approve
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleRejectProfileChange(req)} className="text-red-600 border-red-200 hover:bg-red-50 text-xs font-semibold h-9 px-3">
+                          <XCircle size={14} className="mr-1" /> Reject
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -558,36 +593,28 @@ export default function Members() {
       {/* TAB 3: All Members Tab */}
       {activeTab === "all" && (
         <>
-          {canManageMembers && pendingMembers.length > 0 && (
-            <div className="mb-6 bg-gradient-to-r from-fuchsia-50 via-purple-50/40 to-fuchsia-50 border border-fuchsia-200 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-fuchsia-100 rounded-xl flex items-center justify-center text-fuchsia-700 flex-shrink-0">
-                  <UserCircle size={24} className="animate-pulse" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-fuchsia-950">Pending Member Verifications ({pendingMembers.length})</h4>
-                  <p className="text-xs text-fuchsia-800">You have {pendingMembers.length} member registration(s) awaiting role assignment and approval.</p>
-                </div>
-              </div>
-              <Button
-                onClick={() => setActiveTab("pending")}
-                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold px-4 h-9 shadow-xs"
-              >
-                Review & Assign Roles
-              </Button>
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Input placeholder="Search by name, phone, ID, or location..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
-          )}
-
-          <div className="mb-4">
-            <div className="relative max-w-sm">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Search by name, phone, or ID..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Filter Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+                <SelectItem value="Exited">Exited</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Filter Role" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                {ROLE_ORDER.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           {!canManageMembers && (
@@ -619,61 +646,67 @@ export default function Members() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(m => (
-                      <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium text-gray-800">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-fuchsia-100 border border-fuchsia-200 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-xs">
-                              {m.photo_url ? (
-                                <img src={m.photo_url} alt={m.full_name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xs font-bold text-fuchsia-700">{m.full_name?.charAt(0)}</span>
+                    {filtered.map(m => {
+                      const cacheMemberPhoto = () => {
+                        if (m.photo_url) {
+                          try {
+                            localStorage.setItem(`deborahs_photo_${m.id}`, m.photo_url);
+                            if (m.user_email) localStorage.setItem(`deborahs_photo_${m.user_email.toLowerCase()}`, m.photo_url);
+                            if (m.email) localStorage.setItem(`deborahs_photo_${m.email.toLowerCase()}`, m.photo_url);
+                            if (m.full_name) localStorage.setItem(`deborahs_photo_${m.full_name.toLowerCase().trim().replace(/\s+/g, '_')}`, m.photo_url);
+                          } catch {}
+                        }
+                      };
+                      return (
+                        <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="py-3 px-4 font-medium text-gray-800">
+                            <a href={`/members/${m.id}`} onClick={cacheMemberPhoto} className="inline-flex items-center gap-2.5 hover:text-fuchsia-700 group transition-colors">
+                              <MemberAvatar photoUrl={m.photo_url} name={m.full_name} size="sm" ring />
+                              <span className="group-hover:underline">{m.full_name}</span>
+                            </a>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{m.phone}</td>
+                          <td className="py-3 px-4 text-gray-600 hidden md:table-cell">{m.id_number}</td>
+                          <td className="py-3 px-4 text-gray-600 hidden lg:table-cell">{m.role}</td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                              m.status === "Active" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                              m.status === "Pending" ? "bg-fuchsia-100 text-fuchsia-900 border border-fuchsia-300" :
+                              m.status === "Inactive" ? "bg-gray-100 text-gray-600 border border-gray-200" :
+                              "bg-red-50 text-red-700 border border-red-200"
+                            }`}>
+                              {m.status === "Pending" && <Clock size={11} className="text-fuchsia-600 animate-pulse" />}
+                              {m.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {canManageMembers && m.status === "Pending" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setActiveTab("pending");
+                                    setPendingRoles(prev => ({ ...prev, [m.id]: m.role || "Member" }));
+                                  }}
+                                  className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-semibold h-7 px-2"
+                                >
+                                  <UserCircle size={13} className="mr-1" /> Assign Role
+                                </Button>
+                              )}
+                              <a href={`/members/${m.id}`} onClick={cacheMemberPhoto} title="View Details">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:text-fuchsia-600"><Eye size={14} /></Button>
+                              </a>
+                              {canManageMembers && (
+                                <>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:text-fuchsia-600" onClick={() => openEdit(m)}><Edit2 size={14} /></Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => setDeleteTarget(m)}><Trash2 size={14} /></Button>
+                                </>
                               )}
                             </div>
-                            <span>{m.full_name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{m.phone}</td>
-                        <td className="py-3 px-4 text-gray-600 hidden md:table-cell">{m.id_number}</td>
-                        <td className="py-3 px-4 text-gray-600 hidden lg:table-cell">{m.role}</td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                            m.status === "Active" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                            m.status === "Pending" ? "bg-fuchsia-100 text-fuchsia-900 border border-fuchsia-300" :
-                            m.status === "Inactive" ? "bg-gray-100 text-gray-600 border border-gray-200" :
-                            "bg-red-50 text-red-700 border border-red-200"
-                          }`}>
-                            {m.status === "Pending" && <Clock size={11} className="text-fuchsia-600 animate-pulse" />}
-                            {m.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {canManageMembers && m.status === "Pending" && (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setActiveTab("pending");
-                                  setPendingRoles(prev => ({ ...prev, [m.id]: m.role || "Member" }));
-                                }}
-                                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-semibold h-7 px-2"
-                              >
-                                <UserCircle size={13} className="mr-1" /> Assign Role
-                              </Button>
-                            )}
-                            <Link to={`/members/${m.id}`}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8"><Eye size={14} /></Button>
-                            </Link>
-                            {canManageMembers && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(m)}><Edit2 size={14} /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700" onClick={() => setDeleteTarget(m)}><Trash2 size={14} /></Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -688,6 +721,43 @@ export default function Members() {
             <DialogTitle>{editing ? "Edit Member" : "Add New Member"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
+            {/* Profile Photo Uploader */}
+            <div className="flex items-center gap-4 p-3 bg-fuchsia-50/60 rounded-xl border border-fuchsia-100">
+              <MemberAvatar photoUrl={form.photo_url} name={form.full_name} size="lg" ring />
+              <div className="flex-1">
+                <label className="text-xs font-semibold text-gray-700 block mb-1">Profile Photo</label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-8 text-xs border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50"
+                  >
+                    <Upload size={13} className="mr-1" /> {form.photo_url ? "Change Photo" : "Upload Photo"}
+                  </Button>
+                  {form.photo_url && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm(f => ({ ...f, photo_url: "" }))}
+                      className="h-8 text-xs text-red-500 hover:bg-red-50"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleModalPhotoUpload}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="text-xs font-medium text-gray-600">Full Name *</label>
               <Input value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} placeholder="e.g. Jane Doe" />

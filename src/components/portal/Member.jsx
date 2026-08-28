@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Wallet, HandCoins, AlertTriangle } from "lucide-react";
 import moment from "moment";
 
@@ -35,13 +36,7 @@ export default function MemberDetailDialog({ member, onClose }) {
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-fuchsia-100 border-2 border-fuchsia-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {member.photo_url ? (
-                    <img src={member.photo_url} alt={member.full_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-bold text-fuchsia-600">{member.full_name?.charAt(0)}</span>
-                  )}
-                </div>
+                <MemberAvatar photoUrl={member.photo_url} name={member.full_name} size="lg" ring />
                 <div>
                   <p className="text-lg font-bold text-gray-900">{member.full_name}</p>
                   <p className="text-xs text-gray-500">{member.role} · {member.status}</p>

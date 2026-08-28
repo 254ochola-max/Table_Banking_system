@@ -107,7 +107,38 @@ export function AuthProvider({ children }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const handleMemberUpdate = async (e) => {
+      try {
+        const updatedMember = e?.detail;
+        setUser((prev) => {
+          if (!prev) return prev;
+          const match =
+            (updatedMember?.user_email && updatedMember.user_email.toLowerCase() === prev.email?.toLowerCase()) ||
+            (updatedMember?.email && updatedMember.email.toLowerCase() === prev.email?.toLowerCase()) ||
+            (updatedMember?.id && updatedMember.id === prev.memberId);
+          if (match && updatedMember) {
+            return {
+              ...prev,
+              memberPhoto: updatedMember.photo_url || prev.memberPhoto,
+              memberName: updatedMember.full_name || prev.memberName,
+              memberRole: updatedMember.role || prev.memberRole,
+              memberStatus: updatedMember.status || prev.memberStatus,
+              isLeader: LEADER_ROLES.includes(updatedMember.role || prev.memberRole),
+            };
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error("Failed to update user context with member photo:", err);
+      }
+    };
+
+    window.addEventListener("deborahs-member-updated", handleMemberUpdate);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("deborahs-member-updated", handleMemberUpdate);
+    };
   }, []);
 
   const logout = async (shouldRedirect = true) => {

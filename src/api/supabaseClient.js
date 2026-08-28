@@ -90,10 +90,14 @@ function localRead(name) {
 
 
 function localWrite(name, rows) {
-  localStorage.setItem(
-    localPrefix + name,
-    JSON.stringify(rows)
-  );
+  try {
+    localStorage.setItem(
+      localPrefix + name,
+      JSON.stringify(rows)
+    );
+  } catch (e) {
+    console.warn(`[Storage] Local write fallback for '${name}':`, e);
+  }
 }
 
 
@@ -193,13 +197,44 @@ class SupabaseEntityHandler {
       const localMap = new Map(localMembers.map(m => [m.id, m]));
       return rows.map(row => {
         const local = localMap.get(row.id);
-        const dedicatedPhoto = localStorage.getItem(`deborahs_photo_${row.id}`) || localStorage.getItem(`deborahs_profile_photo_${row.id}`);
-        const photo_url = row.photo_url || local?.photo_url || dedicatedPhoto || null;
+        let dedicatedPhoto = null;
+        try {
+          const emailKey = (row.user_email || row.email || "").toLowerCase();
+          const nameKey = (row.full_name || "").toLowerCase().trim().replace(/\s+/g, "_");
+          dedicatedPhoto = localStorage.getItem(`deborahs_photo_${row.id}`) ||
+                           localStorage.getItem(`deborahs_profile_photo_${row.id}`) ||
+                           (row.auth_user_id ? localStorage.getItem(`deborahs_photo_${row.auth_user_id}`) : null) ||
+                           (emailKey ? localStorage.getItem(`deborahs_photo_${emailKey}`) : null) ||
+                           (nameKey ? localStorage.getItem(`deborahs_photo_${nameKey}`) : null) ||
+                           (local?.user_email ? localStorage.getItem(`deborahs_photo_${local.user_email.toLowerCase()}`) : null) ||
+                           (local?.email ? localStorage.getItem(`deborahs_photo_${local.email.toLowerCase()}`) : null);
+        } catch {}
+
+        let cachedPhoto = null;
+        if (!dedicatedPhoto && !row.photo_url && !local?.photo_url) {
+          for (const [k, v] of _memCache.entries()) {
+            if (k.startsWith("members:") && Array.isArray(v?.data)) {
+              const found = v.data.find(x => x.id === row.id || (row.email && (x.email === row.email || x.user_email === row.email)) || (row.full_name && x.full_name === row.full_name));
+              if (found?.photo_url) {
+                cachedPhoto = found.photo_url;
+                break;
+              }
+            }
+          }
+        }
+
+        const photo_url = row.photo_url || local?.photo_url || dedicatedPhoto || cachedPhoto || null;
         if (photo_url && !row.photo_url) {
           row.photo_url = photo_url;
         }
         if (photo_url) {
-          localStorage.setItem(`deborahs_photo_${row.id}`, photo_url);
+          try {
+            localStorage.setItem(`deborahs_photo_${row.id}`, photo_url);
+            if (row.user_email) localStorage.setItem(`deborahs_photo_${row.user_email.toLowerCase()}`, photo_url);
+            if (row.email) localStorage.setItem(`deborahs_photo_${row.email.toLowerCase()}`, photo_url);
+            if (row.auth_user_id) localStorage.setItem(`deborahs_photo_${row.auth_user_id}`, photo_url);
+            if (row.full_name) localStorage.setItem(`deborahs_photo_${row.full_name.toLowerCase().trim().replace(/\s+/g, '_')}`, photo_url);
+          } catch {}
         }
         return row;
       });
@@ -320,20 +355,46 @@ class SupabaseEntityHandler {
     let row = null;
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from(this.tableName)
           .select("*")
           .eq("id", id)
           .maybeSingle();
 
+        if ((!data || error) && this.name === "Member") {
+          const { data: byAuth } = await supabase
+            .from(this.tableName)
+            .select("*")
+            .or(`auth_user_id.eq.${id},email.eq.${id},user_email.eq.${id}`)
+            .maybeSingle();
+          if (byAuth) data = byAuth;
+        }
+
         if (!error && data) row = data;
+
+        // If member has no photo_url in members table, check profiles table
+        if (row && this.name === "Member" && !row.photo_url) {
+          try {
+            const profileQuery = row.auth_user_id
+              ? supabase.from("profiles").select("photo_url").eq("id", row.auth_user_id).maybeSingle()
+              : (row.email || row.user_email)
+              ? supabase.from("profiles").select("photo_url").eq("email", row.email || row.user_email).maybeSingle()
+              : null;
+            if (profileQuery) {
+              const { data: prof } = await profileQuery;
+              if (prof?.photo_url) {
+                row.photo_url = prof.photo_url;
+              }
+            }
+          } catch {}
+        }
       } catch (e) {
         console.warn(`[Supabase] Table '${this.tableName}' get error:`, e);
       }
     }
 
     if (!row) {
-      row = localRead(this.name).find((r) => r.id === id) || null;
+      row = localRead(this.name).find((r) => r.id === id || r.auth_user_id === id || r.email === id || r.user_email === id) || null;
     }
 
     if (row) {
@@ -352,7 +413,11 @@ class SupabaseEntityHandler {
     };
 
     if (data.photo_url) {
-      localStorage.setItem(`deborahs_photo_${row.id}`, data.photo_url);
+      try {
+        localStorage.setItem(`deborahs_photo_${row.id}`, data.photo_url);
+      } catch (e) {
+        console.warn("Could not cache photo to localStorage:", e);
+      }
     }
 
     // Always update local storage (deduplicating by id or email)
@@ -388,10 +453,18 @@ class SupabaseEntityHandler {
                 .or(`user_email.eq.${matchEmail},email.eq.${matchEmail}`)
                 .select()
                 .maybeSingle();
-              if (updated) return updated;
+              if (updated) {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: updated }));
+                }
+                return updated;
+              }
             }
           }
         } else if (result) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: result }));
+          }
           return result;
         }
       } catch (e) {
@@ -399,6 +472,9 @@ class SupabaseEntityHandler {
       }
     }
 
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: row }));
+    }
     return row;
   }
 
@@ -436,7 +512,11 @@ class SupabaseEntityHandler {
     _cacheInvalidate(this.tableName);
     // Save photo to dedicated key if included in update
     if (data.photo_url) {
-      localStorage.setItem(`deborahs_photo_${id}`, data.photo_url);
+      try {
+        localStorage.setItem(`deborahs_photo_${id}`, data.photo_url);
+      } catch (e) {
+        console.warn("Could not cache photo to localStorage:", e);
+      }
     }
 
     // 1. ALWAYS update local storage immediately
@@ -469,6 +549,9 @@ class SupabaseEntityHandler {
             .maybeSingle();
 
         if (!error && result) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: result }));
+          }
           return result;
         }
       } catch (e) {
@@ -476,6 +559,9 @@ class SupabaseEntityHandler {
       }
     }
 
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: updatedRow }));
+    }
     return updatedRow;
   }
 

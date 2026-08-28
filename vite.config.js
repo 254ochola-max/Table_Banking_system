@@ -7,6 +7,13 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  server: {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

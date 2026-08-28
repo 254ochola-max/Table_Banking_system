@@ -3,6 +3,7 @@ import { api, supabase } from "@/api/supabaseClient";
 import { Wallet, Plus, CheckCircle, XCircle, Trash2, AlertTriangle } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -214,7 +215,12 @@ export default function Contributions() {
                 {filtered.map(c => (
                   <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="py-3 px-4 text-gray-600">{moment(c.date_paid).format("MMM D, YYYY")}</td>
-                    <td className="py-3 px-4 font-medium text-gray-800">{c.member_name}</td>
+                    <td className="py-3 px-4 font-medium text-gray-800">
+                      <div className="flex items-center gap-2">
+                        <MemberAvatar photoUrl={members.find(m => m.id === c.member_id)?.photo_url} name={c.member_name} size="xs" />
+                        <span>{c.member_name}</span>
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{c.month} {c.year}</td>
                     <td className="py-3 px-4 text-gray-600 hidden md:table-cell">
                       <span>{c.payment_method}</span>

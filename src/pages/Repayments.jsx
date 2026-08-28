@@ -3,6 +3,7 @@ import { api, supabase } from "@/api/supabaseClient";
 import { CreditCard, Plus, CheckCircle, XCircle, ShieldAlert, UserCheck } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ export default function Repayments() {
   const { role, isAdmin, isLeader, memberRole, memberName } = context;
   const [repayments, setRepayments] = useState([]);
   const [activeLoans, setActiveLoans] = useState([]);
+  const [members, setMembers] = useState([]);
   const [currentMember, setCurrentMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -52,6 +54,7 @@ export default function Repayments() {
     ]);
     setRepayments(r);
     setActiveLoans(l.filter(loan => (loan.balance === undefined || loan.balance > 0) && loan.status !== "Fully Paid"));
+    setMembers(m);
     if (me?.email) {
       const linked = m.find(mem =>
         mem.user_email?.toLowerCase() === me.email?.toLowerCase() ||
@@ -260,10 +263,15 @@ export default function Repayments() {
                     <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="py-3 px-4 text-gray-600">{moment(r.payment_date).format("MMM D, YYYY")}</td>
                       <td className="py-3 px-4 font-medium text-gray-800">
-                        {r.member_name}
-                        {r.verified_by && (
-                          <span className="block text-[10px] text-gray-400 font-normal">Approved by {r.verified_by}</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <MemberAvatar photoUrl={members?.find(m => m.id === r.member_id)?.photo_url} name={r.member_name} size="xs" />
+                          <div>
+                            <span>{r.member_name}</span>
+                            {r.verified_by && (
+                              <span className="block text-[10px] text-gray-400 font-normal">Approved by {r.verified_by}</span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">
                         <span className={`inline-flex px-1.5 py-0.5 rounded text-[11px] font-semibold ${isCash ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-blue-50 text-blue-800"}`}>

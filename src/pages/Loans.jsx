@@ -3,6 +3,7 @@ import { api } from "@/api/supabaseClient";
 import { HandCoins, Plus, Check, X, Clock, AlertCircle, Info, Calendar, ShieldAlert, CheckCircle2, DollarSign } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -315,24 +316,30 @@ export default function Loans() {
     const approval = getApprovalStatus(loan);
     const alreadyApproved = approval.approvals.some(a => a.leader_role === effectiveRole);
     const canApprove = (isLeader || isAdmin) && showActions && !alreadyApproved && !approval.fullyApproved;
+    const loanMember = members.find(m => m.id === loan.member_id);
     return (
       <tr className="border-b border-gray-50 hover:bg-gray-50">
         <td className="py-3 px-4 font-medium text-gray-800">
-          {loan.member_name}
-          {showActions && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              <ApprovalBadge met={approval.hasChair} label="Chair" />
-              <ApprovalBadge met={approval.hasTreasurer} label="Treasurer" />
-              <ApprovalBadge met={approval.hasOther} label="Other" />
+          <div className="flex items-center gap-2">
+            <MemberAvatar photoUrl={loanMember?.photo_url} name={loan.member_name} size="xs" />
+            <div>
+              <span>{loan.member_name}</span>
+              {showActions && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  <ApprovalBadge met={approval.hasChair} label="Chair" />
+                  <ApprovalBadge met={approval.hasTreasurer} label="Treasurer" />
+                  <ApprovalBadge met={approval.hasOther} label="Other" />
+                </div>
+              )}
+              {loan.status === "Rejected" && loan.rejection_reason && (
+                <div className="mt-1.5 p-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 max-w-md">
+                  <p className="font-semibold text-[11px] text-red-800">Rejection Reason:</p>
+                  <p className="text-[11px] italic mt-0.5">"{loan.rejection_reason}"</p>
+                  {loan.rejected_by && <p className="text-[10px] text-red-500 mt-1">By {loan.rejected_by} on {loan.rejection_date}</p>}
+                </div>
+              )}
             </div>
-          )}
-          {loan.status === "Rejected" && loan.rejection_reason && (
-            <div className="mt-1.5 p-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 max-w-md">
-              <p className="font-semibold text-[11px] text-red-800">Rejection Reason:</p>
-              <p className="text-[11px] italic mt-0.5">"{loan.rejection_reason}"</p>
-              {loan.rejected_by && <p className="text-[10px] text-red-500 mt-1">By {loan.rejected_by} on {loan.rejection_date}</p>}
-            </div>
-          )}
+          </div>
         </td>
         <td className="py-3 px-4 text-gray-700">KES {(loan.amount || 0).toLocaleString()}</td>
         <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">KES {(loan.total_amount || 0).toLocaleString()}</td>
