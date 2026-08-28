@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
-import { api, supabase } from "@/api/supabaseClient";
-import { ArrowLeft, Wallet, HandCoins, AlertTriangle, Camera, Upload } from "lucide-react";
+import { api } from "@/api/supabaseClient";
+import { ArrowLeft, Wallet, HandCoins, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import MemberAvatar from "@/components/shared/MemberAvatar";
-import { compressImage } from "@/lib/imageUtils";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
 
 export default function MemberDetail() {
@@ -18,9 +15,6 @@ export default function MemberDetail() {
   const [loans, setLoans] = useState([]);
   const [fines, setFines] = useState([]);
   const [loading, setLoading] = useState(!initialMember);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const fileInputRef = useRef(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     async function load() {
@@ -59,44 +53,6 @@ export default function MemberDetail() {
     return () => window.removeEventListener("deborahs-member-updated", onMemberUpdated);
   }, [id]);
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !member?.id) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Please select an image smaller than 10MB.", variant: "destructive" });
-      return;
-    }
-    setUploadingPhoto(true);
-    try {
-      toast({ title: "Saving photo...", description: "Compressing and saving profile photo." });
-      const compressed = await compressImage(file, 400, 400, 0.85);
-      if (compressed) {
-        await api.entities.Member.update(member.id, { photo_url: compressed });
-        if (supabase) {
-          await supabase.from("members").update({ photo_url: compressed }).eq("id", member.id);
-          if (member.auth_user_id) {
-            await supabase.from("profiles").update({ photo_url: compressed }).eq("id", member.auth_user_id);
-          } else if (member.email || member.user_email) {
-            await supabase.from("profiles").update({ photo_url: compressed }).eq("email", member.email || member.user_email);
-          }
-        }
-        setMember(prev => ({ ...prev, photo_url: compressed }));
-        try {
-          localStorage.setItem(`deborahs_photo_${member.id}`, compressed);
-          if (member.user_email) localStorage.setItem(`deborahs_photo_${member.user_email.toLowerCase()}`, compressed);
-          if (member.email) localStorage.setItem(`deborahs_photo_${member.email.toLowerCase()}`, compressed);
-          if (member.auth_user_id) localStorage.setItem(`deborahs_photo_${member.auth_user_id}`, compressed);
-        } catch {}
-        window.dispatchEvent(new CustomEvent("deborahs-member-updated", { detail: { id: member.id, photo_url: compressed } }));
-        toast({ title: "Photo updated!", description: "Member profile picture updated successfully." });
-      }
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Failed to upload photo", description: err.message, variant: "destructive" });
-    }
-    setUploadingPhoto(false);
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -123,24 +79,7 @@ export default function MemberDetail() {
       <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 justify-between">
           <div className="flex items-center gap-4">
-            <div className="relative group">
-              <MemberAvatar photoUrl={member.photo_url} name={member.full_name} size="xl" ring />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingPhoto}
-                className="absolute -bottom-1 -right-1 bg-fuchsia-600 text-white p-1.5 rounded-full shadow hover:bg-fuchsia-700 transition-transform hover:scale-110 cursor-pointer"
-                title="Change Photo"
-              >
-                <Camera size={13} />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-            </div>
+            <MemberAvatar photoUrl={member.photo_url} name={member.full_name} size="xl" ring />
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{member.full_name}</h1>
               <p className="text-xs sm:text-sm text-gray-500">{member.phone} · ID: {member.id_number} {member.email ? `· ${member.email}` : ""}</p>
@@ -157,16 +96,6 @@ export default function MemberDetail() {
               </div>
             </div>
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingPhoto}
-            className="border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 text-xs font-semibold self-stretch sm:self-auto"
-          >
-            <Upload size={14} className="mr-1.5" /> {member.photo_url ? "Change Photo" : "Upload Photo"}
-          </Button>
         </div>
       </div>
 

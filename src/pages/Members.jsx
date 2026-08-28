@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { api, supabase } from "@/api/supabaseClient";
-import { useOutletContext } from "react-router-dom";
-import { Users, Plus, Search, Edit2, Trash2, Eye, ShieldOff, AlertTriangle, Clock, CheckCircle2, XCircle, UserCircle, RefreshCw, Upload } from "lucide-react";
+import { useOutletContext, Link } from "react-router-dom";
+import { Users, Plus, Search, Edit2, Trash2, Eye, ShieldOff, AlertTriangle, Clock, CheckCircle2, XCircle, UserCircle, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import MemberAvatar from "@/components/shared/MemberAvatar";
-import { compressImage } from "@/lib/imageUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -46,7 +45,6 @@ export default function Members() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
-  const fileInputRef = useRef(null);
 
   // Initial load — only runs once on mount. Subsequent mutations use
   // optimistic local state updates so the page never re-fetches from Supabase
@@ -66,25 +64,6 @@ export default function Members() {
 
   const openNew = () => { setEditing(null); setForm(emptyMember); setShowForm(true); };
   const openEdit = (m) => { setEditing(m); setForm({ ...emptyMember, ...m, photo_url: m.photo_url || "" }); setShowForm(true); };
-
-  const handleModalPhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Please select an image smaller than 10MB.", variant: "destructive" });
-      return;
-    }
-    try {
-      toast({ title: "Optimizing photo...", description: "Processing selected image." });
-      const compressed = await compressImage(file, 400, 400, 0.85);
-      if (compressed) {
-        setForm(prev => ({ ...prev, photo_url: compressed }));
-        toast({ title: "Photo selected", description: "Click Save/Update to apply changes." });
-      }
-    } catch (err) {
-      toast({ title: "Failed to process photo", description: err.message, variant: "destructive" });
-    }
-  };
 
   const handleSave = async () => {
     if (!form.full_name || !form.phone || !form.id_number) {
@@ -663,10 +642,10 @@ export default function Members() {
                       return (
                         <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
                           <td className="py-3 px-4 font-medium text-gray-800">
-                            <a href={`/members/${m.id}`} onClick={cacheMemberPhoto} className="inline-flex items-center gap-2.5 hover:text-fuchsia-700 group transition-colors">
+                            <Link to={`/members/${m.id}`} onClick={cacheMemberPhoto} className="inline-flex items-center gap-2.5 hover:text-fuchsia-700 group transition-colors">
                               <MemberAvatar photoUrl={m.photo_url} name={m.full_name} size="sm" ring />
                               <span className="group-hover:underline">{m.full_name}</span>
-                            </a>
+                            </Link>
                           </td>
                           <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{m.phone}</td>
                           <td className="py-3 px-4 text-gray-600 hidden md:table-cell">{m.id_number}</td>
@@ -696,9 +675,9 @@ export default function Members() {
                                   <UserCircle size={13} className="mr-1" /> Assign Role
                                 </Button>
                               )}
-                              <a href={`/members/${m.id}`} onClick={cacheMemberPhoto} title="View Details">
+                              <Link to={`/members/${m.id}`} onClick={cacheMemberPhoto} title="View Details">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:text-fuchsia-600"><Eye size={14} /></Button>
-                              </a>
+                              </Link>
                               {canManageMembers && (
                                 <>
                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:text-fuchsia-600" onClick={() => openEdit(m)}><Edit2 size={14} /></Button>
@@ -724,42 +703,15 @@ export default function Members() {
             <DialogTitle>{editing ? "Edit Member" : "Add New Member"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            {/* Profile Photo Uploader */}
-            <div className="flex items-center gap-4 p-3 bg-fuchsia-50/60 rounded-xl border border-fuchsia-100">
-              <MemberAvatar photoUrl={form.photo_url} name={form.full_name} size="lg" ring />
-              <div className="flex-1">
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Profile Photo</label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-8 text-xs border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50"
-                  >
-                    <Upload size={13} className="mr-1" /> {form.photo_url ? "Change Photo" : "Upload Photo"}
-                  </Button>
-                  {form.photo_url && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setForm(f => ({ ...f, photo_url: "" }))}
-                      className="h-8 text-xs text-red-500 hover:bg-red-50"
-                    >
-                      Remove
-                    </Button>
-                  )}
+            {form.photo_url && (
+              <div className="flex items-center gap-3 p-3 bg-fuchsia-50/60 rounded-xl border border-fuchsia-100">
+                <MemberAvatar photoUrl={form.photo_url} name={form.full_name} size="md" ring />
+                <div>
+                  <p className="text-xs font-semibold text-gray-700">Profile Photo</p>
+                  <p className="text-xs text-gray-500">Profile photos are managed directly by the member from their portal.</p>
                 </div>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleModalPhotoUpload}
-                  className="hidden"
-                />
               </div>
-            </div>
+            )}
 
             <div>
               <label className="text-xs font-medium text-gray-600">Full Name *</label>
