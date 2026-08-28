@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Download, X, Share, PlusSquare, Smartphone, Check } from "lucide-react";
+import { Download, X, Share, PlusSquare, Smartphone, Monitor, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/shared/BrandLogo";
 
@@ -9,6 +9,7 @@ export default function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [showDesktopGuide, setShowDesktopGuide] = useState(false);
 
   useEffect(() => {
     // 1. Check if already installed / running in standalone mode
@@ -19,12 +20,13 @@ export default function PWAInstallPrompt() {
     setIsStandalone(isRunningStandalone);
     if (isRunningStandalone) return;
 
-    // 2. Check if dismissed recently (within 7 days)
+    // 2. Check if dismissed recently (within 3 days)
     const dismissedAt = localStorage.getItem("deborahs_pwa_dismissed");
+    let isDismissed = false;
     if (dismissedAt) {
       const daysSinceDismissed = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60 * 24);
-      if (daysSinceDismissed < 7) {
-        return;
+      if (daysSinceDismissed < 3) {
+        isDismissed = true;
       }
     }
 
@@ -35,33 +37,67 @@ export default function PWAInstallPrompt() {
 
     if (isIOSDevice && isSafari) {
       setIsIOS(true);
-      // Give the user a couple of seconds to settle before showing
-      const timer = setTimeout(() => setShowPrompt(true), 3000);
-      return () => clearTimeout(timer);
+      if (!isDismissed) {
+        const timer = setTimeout(() => setShowPrompt(true), 2500);
+        return () => clearTimeout(timer);
+      }
+      return;
     }
 
     // 4. Standard beforeinstallprompt for Chrome / Edge / Android
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Show prompt after a short delay
-      setTimeout(() => setShowPrompt(true), 2000);
+      window.__deferredPWAInstallPrompt = e;
+      if (!isDismissed) {
+        setTimeout(() => setShowPrompt(true), 1500);
+      }
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // If deferredPrompt was already captured globally
+    if (window.__deferredPWAInstallPrompt) {
+      setDeferredPrompt(window.__deferredPWAInstallPrompt);
+      if (!isDismissed) {
+        setShowPrompt(true);
+      }
+    } else if (!isDismissed) {
+      // Fallback timer on desktop if beforeinstallprompt is delayed
+      const desktopTimer = setTimeout(() => {
+        if (!isRunningStandalone) {
+          setShowPrompt(true);
+        }
+      }, 3000);
+      return () => clearTimeout(desktopTimer);
+    }
 
     // 5. Hide prompt when app is successfully installed
     const handleAppInstalled = () => {
       setShowPrompt(false);
       setDeferredPrompt(null);
+      window.__deferredPWAInstallPrompt = null;
       localStorage.setItem("deborahs_pwa_installed", "true");
     };
 
     window.addEventListener("appinstalled", handleAppInstalled);
 
+    // Listen for custom trigger from Sidebar or other buttons
+    const handleOpenInstall = () => {
+      if (isIOSDevice && isSafari) {
+        setShowIOSGuide(true);
+      } else if (window.__deferredPWAInstallPrompt) {
+        window.__deferredPWAInstallPrompt.prompt();
+      } else {
+        setShowDesktopGuide(true);
+      }
+    };
+    window.addEventListener("deborahs-open-install", handleOpenInstall);
+
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
+      window.removeEventListener("deborahs-open-install", handleOpenInstall);
     };
   }, []);
 
@@ -71,13 +107,18 @@ export default function PWAInstallPrompt() {
       return;
     }
 
-    if (!deferredPrompt) return;
+    const promptEvent = deferredPrompt || window.__deferredPWAInstallPrompt;
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
-      setShowPrompt(false);
-      setDeferredPrompt(null);
+    if (promptEvent) {
+      promptEvent.prompt();
+      const { outcome } = await promptEvent.userChoice;
+      if (outcome === "accepted") {
+        setShowPrompt(false);
+        setDeferredPrompt(null);
+        window.__deferredPWAInstallPrompt = null;
+      }
+    } else {
+      setShowDesktopGuide(true);
     }
   };
 
@@ -86,46 +127,100 @@ export default function PWAInstallPrompt() {
     localStorage.setItem("deborahs_pwa_dismissed", Date.now().toString());
   };
 
-  if (isStandalone || !showPrompt) return null;
+  if (isStandalone) return null;
 
   return (
     <>
-      {/* Floating Bottom Card */}
-      <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
-        <div className="bg-white/95 backdrop-blur-md border border-fuchsia-100 rounded-2xl shadow-xl p-4 flex items-center gap-3.5 relative">
-          <button
-            onClick={handleDismiss}
-            aria-label="Close install prompt"
-            className="absolute top-2.5 right-2.5 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X size={15} />
-          </button>
+      {/* Floating Bottom Prompt Card */}
+      {showPrompt && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className="bg-white/95 backdrop-blur-md border border-fuchsia-100 rounded-2xl shadow-xl p-4 flex items-center gap-3.5 relative">
+            <button
+              onClick={handleDismiss}
+              aria-label="Close install prompt"
+              className="absolute top-2.5 right-2.5 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={15} />
+            </button>
 
-          <div className="flex-shrink-0">
-            <BrandLogo size={42} className="shadow-xs" />
-          </div>
+            <div className="flex-shrink-0">
+              <BrandLogo size={42} className="shadow-xs" />
+            </div>
 
-          <div className="flex-1 min-w-0 pr-4">
-            <h4 className="text-xs font-bold text-gray-900 truncate">Install The Deborahs</h4>
-            <p className="text-[11px] text-gray-500 line-clamp-1">Install on your device for fast, full-screen access.</p>
-            <div className="mt-2 flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={handleInstallClick}
-                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs h-7 px-3 font-semibold shadow-xs"
-              >
-                <Download size={13} className="mr-1" /> Install App
-              </Button>
-              <button
-                onClick={handleDismiss}
-                className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1 font-medium"
-              >
-                Later
-              </button>
+            <div className="flex-1 min-w-0 pr-4">
+              <h4 className="text-xs font-bold text-gray-900 truncate">Install The Deborahs</h4>
+              <p className="text-[11px] text-gray-500 line-clamp-1">Install app on your device for fast access.</p>
+              <div className="mt-2 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleInstallClick}
+                  className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs h-7 px-3 font-semibold shadow-xs"
+                >
+                  <Download size={13} className="mr-1" /> Install App
+                </Button>
+                <button
+                  onClick={handleDismiss}
+                  className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1 font-medium"
+                >
+                  Later
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Desktop Installation Guide Modal */}
+      {showDesktopGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Monitor className="text-fuchsia-600" size={20} />
+                <h3 className="font-bold text-sm text-gray-900">Install on Desktop</h3>
+              </div>
+              <button
+                onClick={() => setShowDesktopGuide(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-gray-600">
+              <p className="text-gray-700 font-medium">To install The Deborahs as a desktop application:</p>
+              
+              <div className="p-2.5 bg-fuchsia-50/60 rounded-xl border border-fuchsia-100 space-y-1.5">
+                <p className="font-semibold text-gray-900 flex items-center gap-1.5">
+                  <Download size={14} className="text-fuchsia-600" /> Method 1: Address Bar
+                </p>
+                <p className="text-gray-600 pl-5">
+                  Look for the <strong>Install</strong> icon in your browser address bar (top right next to the star/bookmark icon) and click it.
+                </p>
+              </div>
+
+              <div className="p-2.5 bg-fuchsia-50/60 rounded-xl border border-fuchsia-100 space-y-1.5">
+                <p className="font-semibold text-gray-900 flex items-center gap-1.5">
+                  <PlusSquare size={14} className="text-fuchsia-600" /> Method 2: Browser Menu
+                </p>
+                <p className="text-gray-600 pl-5">
+                  Click the browser menu <strong>(⋮ or ⋯)</strong> &rarr; select <strong>"Install The Deborahs"</strong> (or "Save and share" &rarr; "Install").
+                </p>
+              </div>
+            </div>
+
+            <Button
+              className="w-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-semibold h-9"
+              onClick={() => {
+                setShowDesktopGuide(false);
+                setShowPrompt(false);
+              }}
+            >
+              <Check size={14} className="mr-1.5" /> Got it
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* iOS Step-by-Step Installation Modal */}
       {showIOSGuide && (

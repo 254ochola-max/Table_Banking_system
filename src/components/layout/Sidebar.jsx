@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Wallet, HandCoins, CreditCard,
   AlertTriangle, FileText, Settings, LogOut, X, Banknote,
-  Bell, Info, Mail, UserCircle, MessageSquare,
+  Bell, Info, Mail, UserCircle, MessageSquare, Download,
 } from "lucide-react";
 import { api } from "@/api/supabaseClient";
 import BrandLogo from "@/components/shared/BrandLogo";
@@ -132,23 +132,33 @@ export default function Sidebar({ open, onClose, role, hasAdminNav, isLeader, me
         </nav>
 
         <div className="px-3 py-4 space-y-1 border-t border-gray-200">
+          <button
+            onClick={() => {
+              onClose?.();
+              window.dispatchEvent(new CustomEvent("deborahs-open-install"));
+            }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-fuchsia-700 bg-fuchsia-50 hover:bg-fuchsia-100 w-full transition-all"
+          >
+            <Download size={18} className="text-fuchsia-600" />
+            <span>Install App</span>
+          </button>
           <Link
             to="/about"
             onClick={onClose}
-            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all"
           >
             <Info size={18} /> About
           </Link>
           <Link
             to="/contact"
             onClick={onClose}
-            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all"
           >
             <Mail size={18} /> Contact
           </Link>
           <button
             onClick={() => api.auth.logout("/")}
-            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full transition-all"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full transition-all"
           >
             <LogOut size={18} />
             Logout
