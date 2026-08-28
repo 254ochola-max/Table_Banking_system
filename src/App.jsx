@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import PWAInstallPrompt from '@/components/shared/PWAInstallPrompt';
 
 // ── Eager imports (tiny, needed immediately or on the login path) ─────────────
 import Login from '@/pages/Login';
@@ -116,6 +117,7 @@ function App() {
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <AuthenticatedApp />
+            <PWAInstallPrompt />
           </Router>
           <Toaster />
         </QueryClientProvider>

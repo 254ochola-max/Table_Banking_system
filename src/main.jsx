@@ -2,6 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { registerServiceWorker } from "./registerServiceWorker";
+
+// Register Service Worker for PWA capabilities (offline shell & installability)
+registerServiceWorker();
 
 // Handle Vite dynamic import chunk errors after new deployments on hosting platforms like Vercel
 window.addEventListener("vite:preloadError", (event) => {
