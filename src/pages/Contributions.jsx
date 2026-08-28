@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { api, supabase } from "@/api/supabaseClient";
+import { api } from "@/api/supabaseClient";
 import { Wallet, Plus, CheckCircle, XCircle, Trash2, AlertTriangle } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";

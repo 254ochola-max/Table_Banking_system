@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { api, supabase } from "@/api/supabaseClient";
-import { CreditCard, Plus, CheckCircle, XCircle, ShieldAlert, UserCheck } from "lucide-react";
+import { api } from "@/api/supabaseClient";
+import { CreditCard, Plus, CheckCircle, XCircle, ShieldAlert } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import MemberAvatar from "@/components/shared/MemberAvatar";

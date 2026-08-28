@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { api, supabase } from "@/api/supabaseClient";
 import {
-  Wallet, HandCoins, AlertTriangle, User, LogOut, CreditCard, Plus,
-  LayoutDashboard, UserCircle, TrendingUp, Shield, Calendar, Edit3, Lock,
+  Wallet, HandCoins, AlertTriangle, CreditCard, Plus, UserCircle, Shield, Edit3, Lock,
   Clock, CheckCircle2, Phone, Mail, MapPin, Briefcase, Camera, HeartHandshake, Upload, XCircle
 } from "lucide-react";
-import GroupSummaryTableWidget from "@/components/dashboard/GroupSummaryTableWidget";
 import MemberDetailDialog from "@/components/portal/Member";
 import MemberAvatar from "@/components/shared/MemberAvatar";
 import BrandLogo from "@/components/shared/BrandLogo";

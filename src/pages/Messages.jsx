@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api, supabase } from "@/api/supabaseClient";
-import {
-  MessageSquare, Trash2, MailOpen, Mail, Search,
+import { Trash2, MailOpen, Mail, Search,
   ChevronDown, ChevronUp, Loader2, CheckCircle2, Inbox,
 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";

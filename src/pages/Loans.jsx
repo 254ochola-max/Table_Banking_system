@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "@/api/supabaseClient";
-import { HandCoins, Plus, Check, X, Clock, AlertCircle, Info, Calendar, ShieldAlert, CheckCircle2, DollarSign } from "lucide-react";
+import { HandCoins, Plus, Check, X, Clock, AlertCircle, ShieldAlert } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import MemberAvatar from "@/components/shared/MemberAvatar";

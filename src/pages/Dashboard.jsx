@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useOutletContext, Navigate } from "react-router-dom";
-import { api, supabase } from "@/api/supabaseClient";
+import { api } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { Users, Wallet, HandCoins, AlertTriangle, Trash2, Loader2, UserCircle } from "lucide-react";
+import { Users, Wallet, HandCoins, AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import BrandLogo from "@/components/shared/BrandLogo";
 import MemberAvatar from "@/components/shared/MemberAvatar";

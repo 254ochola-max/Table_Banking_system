@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { api, supabase } from "@/api/supabaseClient";
+import { api } from "@/api/supabaseClient";
 import PageHeader from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

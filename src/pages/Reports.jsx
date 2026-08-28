@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { api, supabase } from "@/api/supabaseClient";
-import { Download, Users, Wallet, HandCoins, History, Search, ShieldCheck, FileCheck, CheckCircle2, Clock, XCircle, AlertCircle, ShieldAlert, AlertTriangle, UserX, FileWarning } from "lucide-react";
+import { api } from "@/api/supabaseClient";
+import { Download, Users, Wallet, HandCoins, History, Search, Clock, XCircle, ShieldAlert, AlertTriangle, UserX } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";

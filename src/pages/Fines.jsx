@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api, supabase } from "@/api/supabaseClient";
-import { AlertTriangle, Plus, Check, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, Check, Trash2, CheckCircle2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
-import EmptyState from "@/components/shared/EmptyState";
 import MemberAvatar from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

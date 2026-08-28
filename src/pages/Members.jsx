@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api, supabase } from "@/api/supabaseClient";
 import { useOutletContext } from "react-router-dom";
-import { Users, Plus, Search, Edit2, Trash2, Eye, ShieldOff, AlertTriangle, Clock, CheckCircle2, XCircle, Shield, UserCircle, RefreshCw, Database, Upload, Camera } from "lucide-react";
+import { Users, Plus, Search, Edit2, Trash2, Eye, ShieldOff, AlertTriangle, Clock, CheckCircle2, XCircle, UserCircle, RefreshCw, Upload } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import MemberAvatar from "@/components/shared/MemberAvatar";
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Link } from "react-router-dom";
 import moment from "moment";
 
 const ROLE_ORDER = [

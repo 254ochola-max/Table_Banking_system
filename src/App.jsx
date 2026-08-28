@@ -2,12 +2,14 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // ── Eager imports (tiny, needed immediately or on the login path) ─────────────
 import Login from '@/pages/Login';
@@ -18,21 +20,22 @@ import AppLayout from '@/components/layout/AppLayout';
 import Members from '@/pages/Members';
 import MemberDetail from '@/pages/MemberDetail';
 
-// ── Lazy imports (loaded only when the user first navigates to the page) ──────
-// This means the initial JS bundle is much smaller and the app starts faster.
-const Dashboard      = lazy(() => import('@/pages/Dashboard'));
-const Contributions  = lazy(() => import('@/pages/Contributions'));
-const Loans          = lazy(() => import('@/pages/Loans'));
-const Repayments     = lazy(() => import('@/pages/Repayments'));
-const Fines          = lazy(() => import('@/pages/Fines'));
-const Transactions   = lazy(() => import('@/pages/Transactions'));
-const Reports        = lazy(() => import('@/pages/Reports'));
-const SettingsPage   = lazy(() => import('@/pages/SettingsPage'));
-const LoanReminders  = lazy(() => import('@/pages/LoanReminders'));
-const MemberPortal   = lazy(() => import('@/pages/MemberPortal'));
-const About          = lazy(() => import('@/pages/About'));
-const Contact        = lazy(() => import('@/pages/Contact'));
-const Messages       = lazy(() => import('@/pages/Messages'));
+// ── Lazy imports with auto-reload retry on chunk load / deployment changes ─────
+// This means the initial JS bundle is much smaller, and if a deployment updates
+// chunk hashes, the browser automatically reloads cleanly instead of throwing MIME errors.
+const Dashboard      = lazyWithRetry(() => import('@/pages/Dashboard'));
+const Contributions  = lazyWithRetry(() => import('@/pages/Contributions'));
+const Loans          = lazyWithRetry(() => import('@/pages/Loans'));
+const Repayments     = lazyWithRetry(() => import('@/pages/Repayments'));
+const Fines          = lazyWithRetry(() => import('@/pages/Fines'));
+const Transactions   = lazyWithRetry(() => import('@/pages/Transactions'));
+const Reports        = lazyWithRetry(() => import('@/pages/Reports'));
+const SettingsPage   = lazyWithRetry(() => import('@/pages/SettingsPage'));
+const LoanReminders  = lazyWithRetry(() => import('@/pages/LoanReminders'));
+const MemberPortal   = lazyWithRetry(() => import('@/pages/MemberPortal'));
+const About          = lazyWithRetry(() => import('@/pages/About'));
+const Contact        = lazyWithRetry(() => import('@/pages/Contact'));
+const Messages       = lazyWithRetry(() => import('@/pages/Messages'));
 
 // Minimal inline spinner shown while a lazy page chunk is downloading
 function PageLoader() {
@@ -107,15 +110,17 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <ScrollToTop />
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
