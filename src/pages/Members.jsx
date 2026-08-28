@@ -36,6 +36,8 @@ export default function Members() {
   const [activeTab, setActiveTab] = useState("all"); // "all", "pending", "requests"
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterRole, setFilterRole] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyMember);
@@ -322,14 +324,16 @@ export default function Members() {
   const filtered = members
     .filter(m => {
       if (activeTab === "pending") return m.status === "Pending";
+      if (filterStatus !== "all" && m.status !== filterStatus) return false;
+      if (filterRole !== "all" && m.role !== filterRole) return false;
       return true;
     })
     .filter(m =>
-      m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      m.phone?.includes(search) ||
-      m.id_number?.includes(search) ||
-      m.user_email?.toLowerCase().includes(search.toLowerCase()) ||
-      m.email?.toLowerCase().includes(search.toLowerCase())
+      (m.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (m.phone || "").includes(search) ||
+      (m.id_number || "").includes(search) ||
+      (m.user_email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (m.email || "").toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
       const ai = ROLE_ORDER.indexOf(a.role ?? "Member");
